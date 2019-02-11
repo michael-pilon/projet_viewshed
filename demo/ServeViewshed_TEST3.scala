@@ -1,5 +1,4 @@
 package demo
-
 import java.util.concurrent.atomic.LongAdder
 import java.net.URLDecoder
 
@@ -13,8 +12,10 @@ import com.sun.org.apache.xpath.internal.operations.Or
 import com.typesafe.config.ConfigFactory
 import fs2.async.mutable
 import geotrellis.raster._
+import geotrellis.raster.mapalgebra.focal
 import geotrellis.raster.render.{CustomizedDoubleColorMap, _}
 import geotrellis.raster.render.png._
+import geotrellis.raster.mapalgebra.focal.Square
 import geotrellis.spark._
 import geotrellis.spark.io._
 import geotrellis.spark.io.s3.{S3AttributeStore, S3CollectionLayerReader, S3CollectionReader, S3ValueReader}
@@ -131,7 +132,8 @@ object ServeViewshed_TEST3 {
                 if (algo == 1) {
                   dsm.tile.mutable.setDouble(pt._1,pt._2,offseta)
                   val result = geotrellis.raster.viewshed.ApproxViewshed(dsm.tile,pt._1,pt._2)
-                  val png = result.renderPng(ramp)
+                  val filter = result.focalMedian(Square(1))
+                  val png = filter.renderPng(ramp)
                   pngAsHttpResponse(png)
                 }
 
@@ -139,8 +141,9 @@ object ServeViewshed_TEST3 {
                 else{
                   dsm.tile.mutable.setDouble(pt._1,pt._2,offseta)
                   val result = geotrellis.raster.viewshed.ApproxViewshed(dsm.tile,pt._1,pt._2)
-                  result.mapDouble { v => if(v == 0) NODATA else v }
-                  val resultpoly = geotrellis.raster.vectorize.Vectorize(result,dsm.extent)
+                  val filter = result.focalMedian(Square(1))
+                  filter.mapDouble { v => if(v == 0) NODATA else v }
+                  val resultpoly = geotrellis.raster.vectorize.Vectorize(filter,dsm.extent)
                   val geojson: String = resultpoly.toGeoJson
                   jsonAsHttpResponse(geojson)
 
